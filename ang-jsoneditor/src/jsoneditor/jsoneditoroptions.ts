@@ -153,19 +153,28 @@ export class JsonEditorOptions {
   public onCreateMenu: (items: Array<JsonEditorContextMenuItem>, node: JsonEditorContextMenuNode) => void;
 
   /**
-   *  If true, unicode characters are escaped and displayed as their
+   *  If `true`, unicode characters are escaped and displayed as their
    *  hexadecimal code (like `\u260E`) instead of of the character itself (like
    *  `☎`). `false` by default.
    */
   public escapeUnicode: boolean;
 
   /**
-   *  If true, object keys in 'tree', 'view' or 'form' mode list be listed
+   *  If `true`, object keys in 'tree', 'view' or 'form' mode list be listed
    *  alphabetically instead by their insertion order. Sorting is performed
    *  using a natural sort algorithm, which makes it easier to see objects that
    *  have string numbers as keys. `false` by default.
    */
   public sortObjectKeys: boolean;
+
+  /**
+   *  If `false`, nodes can be dragged from any parent node to any other parent
+   *  node. If `true`, nodes can only be dragged inside the same parent node,
+   *  which effectively only allows reordering of nodes. By default,
+   *  `limitDragging` is `true` when no JSON `schema` is defined, and `false`
+   *  otherwise.
+   */
+  public limitDragging: boolean;
 
   /**
    *  Enables history, adds a button Undo and Redo to the menu of the
@@ -282,6 +291,18 @@ export class JsonEditorOptions {
   public onEvent: (node: JsonEditorNode, event: Event) => void;
 
   /**
+  *   Callback method, triggered when the editor comes into focus, passing an
+  *   object `{type, target}`, Applicable for all modes.
+  */
+  public onFocus: (event: { type: 'focus', target: HTMLElement }) => void;
+
+  /**
+   *  Callback method, triggered when the editor goes out of focus, passing an
+   *  object `{type, target}`, Applicable for all modes.
+   */
+  public onBlur: (event: { type: 'blur', target: HTMLElement }) => void;
+
+  /**
    *  If true (default), values containing a color name or color code will have
    *  a color picker rendered on their left side.
    */
@@ -310,7 +331,7 @@ export class JsonEditorOptions {
   /**
    *  The default language comes from the browser navigator, but you can force
    *  a specific language. So use here string as 'en' or 'pt-BR'. Built-in
-   *  languages: `en`, `pt-BR`, `zh-CN`, `tr`, `ja`, `fr-FR`. Other
+   *  languages: `en`, `zh-CN`, `pt-BR`, `tr`, `ja`, `fr-FR`, `de`. Other
    *  translations can be specified via the option `languages`.
    */
   public language: string;
@@ -385,6 +406,7 @@ export class JsonEditorOptions {
   constructor() {
     this.escapeUnicode = false;
     this.sortObjectKeys = false;
+    this.limitDragging = false;
     this.history = true;
     this.mode = 'tree';
     this.search = true;
