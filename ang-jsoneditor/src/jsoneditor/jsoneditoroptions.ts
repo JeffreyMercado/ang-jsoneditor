@@ -48,6 +48,21 @@ export interface JsonEditorSerializableNode {
   path: JsonEditorNodePath;
 }
 
+export interface JsonEditorQueryOptions {
+  filter?: {
+    field: string | '@';
+    relation: '==' | '!=' | '<' | '<=' | '>' | '>=';
+    value: string;
+  };
+  sort?: {
+    field: string | '@';
+    direction: 'asc' | 'desc';
+  };
+  projection?: {
+    fields: string[];
+  };
+}
+
 export type JsonEditorTreeNode = JsonEditorNode;
 export type IError = JsonEditorValidationError;
 
@@ -127,6 +142,12 @@ export class JsonEditorOptions {
   public onValidate: (json: JSON) => Array<JsonEditorValidationError> | Promise<Array<JsonEditorValidationError>>;
 
   /**
+   *  Set a callback function for validation and parse errors. Available in all
+   *  modes.
+   */
+  public onValidationError: (errors: Array<JsonEditorValidationError>) => void;
+
+  /**
    *  Customize context menus in tree mode.
    */
   public onCreateMenu: (items: Array<JsonEditorContextMenuItem>, node: JsonEditorContextMenuNode) => void;
@@ -134,7 +155,7 @@ export class JsonEditorOptions {
   /**
    *  If true, unicode characters are escaped and displayed as their
    *  hexadecimal code (like `\u260E`) instead of of the character itself (like
-   *  `☎`). False by default.
+   *  `☎`). `false` by default.
    */
   public escapeUnicode: boolean;
 
@@ -142,14 +163,14 @@ export class JsonEditorOptions {
    *  If true, object keys in 'tree', 'view' or 'form' mode list be listed
    *  alphabetically instead by their insertion order. Sorting is performed
    *  using a natural sort algorithm, which makes it easier to see objects that
-   *  have string numbers as keys. False by default.
+   *  have string numbers as keys. `false` by default.
    */
   public sortObjectKeys: boolean;
 
   /**
    *  Enables history, adds a button Undo and Redo to the menu of the
-   *  JSONEditor. True by default. Only applicable when `mode` is 'tree' or
-   *  'form'.
+   *  JSONEditor. `true` by default. Only applicable when `mode` is `'tree'`,
+   *  `'form'`, or `'preview'`.
    */
   public history: boolean;
 
@@ -169,7 +190,7 @@ export class JsonEditorOptions {
   public modes: JsonEditorMode[];
 
   /**
-   *  Initial field name for the root node, is undefined by default. Can also
+   *  Initial field name for the root node, is `undefined` by default. Can also
    *  be set using `JSONEditor.setName(name)`. Only applicable when `mode` is
    *  'tree', 'view', or 'form'.
    */
@@ -190,13 +211,13 @@ export class JsonEditorOptions {
   public schemaRefs: object;
 
   /**
-   *  Enables a search box in the upper right corner of the JSONEditor. True by
-   *  default. Only applicable when `mode` is 'tree', 'view', or 'form'.
+   *  Enables a search box in the upper right corner of the JSONEditor. `true`
+   *  by default. Only applicable when `mode` is 'tree', 'view', or 'form'.
    */
   public search: boolean;
 
   /**
-   *  Number of indentation spaces. 2 by default. Only applicable when `mode`
+   *  Number of indentation spaces. `2` by default. Only applicable when `mode`
    *  is 'code', 'text', or 'preview'.
    */
   public indentation: number;
@@ -204,7 +225,7 @@ export class JsonEditorOptions {
   /**
    *  Set the Ace editor theme, uses included 'ace/theme/jsoneditor' by
    *  default. Please note that only the default theme is included with
-   *  jsoneditor, so if you specify another one you need to make sure it is
+   *  JSONEditor, so if you specify another one you need to make sure it is
    *  loaded.
    */
   public theme: number;
@@ -223,22 +244,22 @@ export class JsonEditorOptions {
 
   /**
    *  Adds main menu bar - Contains format, sort, transform, search etc.
-   *  functionality. True by default. Applicable in all types of `mode`.
+   *  functionality. `true` by default. Applicable in all types of `mode`.
    */
   public mainMenuBar: boolean;
 
   /**
    *  Adds navigation bar to the menu - the navigation bar visualize the
    *  current position on the tree structure as well as allows breadcrumbs
-   *  navigation. True by default. Only applicable when `mode` is 'tree',
+   *  navigation. `true` by default. Only applicable when `mode` is 'tree',
    *  'form' or 'view'.
    */
   public navigationBar: boolean;
 
   /**
    *  Adds status bar to the bottom of the editor - the status bar shows the
-   *  cursor position and a count of the selected characters. True by default.
-   *  Only applicable when `mode` is 'code', 'text', or 'preview'.
+   *  cursor position and a count of the selected characters. `true` by
+   *  default. Only applicable when `mode` is 'code', 'text', or 'preview'.
    */
   public statusBar: boolean;
 
@@ -272,17 +293,25 @@ export class JsonEditorOptions {
   public onColorPicker: (parent: HTMLElement, color: any, onChange: (value: any) => void) => void;
 
   /**
-   *  If true (default), a tag with the date/time of a timestamp is displayed
-   *  right from timestamps. A value is considered a timestamp when it has a
-   *  value larger than Jan 1th 2000, `946684800000`.
+   *  If `true` (default), a tag with the date/time of a timestamp is displayed
+   *  right from values containing a timestamp. By default, a value is
+   *  considered a timestamp when it is an integer number with a value larger
+   *  than Jan 1th 2000, `946684800000`.
    */
-  public timestampTag: boolean;
+  public timestampTag: boolean | ((args: JsonEditorNode) => boolean);
+
+  /**
+   *  Customizing the way formating the timestamp. Called when a value is
+   *  timestamp after `timestampTag`. If it returns null, the timestamp would
+   *  be formatted with default setting (`new Date(value).toISOString()`).
+   */
+  public timestampFormat: (args: JsonEditorNode) => string | null;
 
   /**
    *  The default language comes from the browser navigator, but you can force
    *  a specific language. So use here string as 'en' or 'pt-BR'. Built-in
-   *  languages: `en`, `pt-BR`, `zh-CN`, `tr`. Other translations can be
-   *  specified via the option `languages`.
+   *  languages: `en`, `pt-BR`, `zh-CN`, `tr`, `ja`, `fr-FR`. Other
+   *  translations can be specified via the option `languages`.
    */
   public language: string;
 
@@ -301,15 +330,22 @@ export class JsonEditorOptions {
   public modalAnchor: HTMLElement;
 
   /**
+   *  The container element where popups (for example drop down menus, for JSON
+   *  Schema error tooltips, and color pickers) will be absolutely positioned.
+   *  By default, this is the root DIV element of the editor itself.
+   */
+  public popupAnchor: HTMLElement;
+
+  /**
    *  Enable sorting of arrays and object properties. Only applicable for mode
-   *  'tree'. True by default.
+   *  'tree'. `true` by default.
    */
   public enableSort: boolean;
 
   /**
    *  Enable filtering, sorting, and transforming JSON using a
    *  [JMESPath](http://jmespath.org/) query. Only applicable for mode 'tree'.
-   *  True by default.
+   *  `true` by default.
    */
   public enableTransform: boolean;
 
@@ -318,6 +354,23 @@ export class JsonEditorOptions {
    *  or 'form' modes). `100` by default.
    */
   public maxVisibleChilds: number;
+
+  /**
+   *  Create a query string based on query options filled in the Transform
+   *  Wizard in the Transform modal.
+   */
+  public createQuery: (json: JSON, queryOptions: JsonEditorQueryOptions) => string;
+
+  /**
+   *  Replace the build-in query language used in the Transform modal with a
+   *  custom language.
+   */
+  public executeQuery: (json: JSON, query: string) => JSON;
+
+  /**
+   *  A text description displayed on top of the Transform modal.
+   */
+  public queryDescription: string;
 
 
   /****************************
